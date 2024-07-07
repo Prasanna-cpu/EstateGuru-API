@@ -17,11 +17,7 @@ export const verifyToken = (req, res, next) => {
                 message:"Invalid Token",
             })
         }
-
-
         req.userId=payload.id
-
         next();
-
     })
 }
