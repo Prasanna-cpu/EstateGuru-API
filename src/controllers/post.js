@@ -1,27 +1,29 @@
 import prisma from "../../lib/prisma.js";
+import jwt from "jsonwebtoken";
 
-export const getPosts=async(req, res) => {
-    try{
-        const posts=await prisma.post.findMany({
-            include:{
-                postDetail:true,
-                user:{
-                    select:{
-                        username:true,
-                        avatar:true
-                    }
+export const getPosts = async (req, res) => {
+    const { type, location, property, minPrice, maxPrice, bedroom } = req.query;
+
+    try {
+        const posts = await prisma.post.findMany({
+            where: {
+                city: location,
+                type: type,
+                property: property,
+                bedroom: parseInt(bedroom),
+                price: {
+                    gte: parseInt(minPrice),
+                    lte: parseInt(maxPrice)
                 }
             }
-        })
-        res.status(200).json(posts)
+        });
+
+        res.json(posts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    catch(err){
-        console.log(err)
-        res.status(500).json({
-            error:err
-        })
-    }
-}
+};
+
 
 export const getPost=async(req,res)=>{
     try{
@@ -46,6 +48,25 @@ export const getPost=async(req,res)=>{
                 message:`Post for given id ${id} not found`,
                 status:404
             })
+        }
+
+
+        const token=req.cookies?.token
+
+        if (token) {
+            jwt.verify(token, process.env.JWT_SIGN, async (err, payload) => {
+                if (!err) {
+                    const saved = await prisma.savedPost.findUnique({
+                        where: {
+                            userId_postId: {
+                                postId: id,
+                                userId: payload.id,
+                            },
+                        },
+                    });
+                    res.status(200).json({ ...post, isSaved: !!saved });
+                }
+            });
         }
 
         res.status(200).json(post)
