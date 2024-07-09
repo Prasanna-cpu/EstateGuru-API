@@ -2,7 +2,17 @@ import prisma from "../../lib/prisma.js";
 
 export const getPosts=async(req, res) => {
     try{
-        const posts=await prisma.post.findMany()
+        const posts=await prisma.post.findMany({
+            include:{
+                postDetail:true,
+                user:{
+                    select:{
+                        username:true,
+                        avatar:true
+                    }
+                }
+            }
+        })
         res.status(200).json(posts)
     }
     catch(err){
@@ -20,6 +30,15 @@ export const getPost=async(req,res)=>{
 
         const post=await prisma.post.findUnique({
                 where:{id},
+                include:{
+                    postDetail:true,
+                    user:{
+                        select:{
+                            username:true,
+                            avatar:true
+                        }
+                    }
+                }
         })
 
         if(!post){
@@ -39,58 +58,26 @@ export const getPost=async(req,res)=>{
         })
     }
 }
+//
+
 export const addPost = async (req, res) => {
+    const body = req.body;
+    const tokenUserId = req.userId;
+
     try {
-        const { title, price, address, city, bedroom, bathroom, latitude, longitude, type, property, images } = req.body;
-        const tokenUserId = req.userId;
-
-        try {
-            // Find or create the User based on the tokenUserId
-            let user;
-            if (tokenUserId) {
-                user = await prisma.user.findUnique({
-                    where: { id: tokenUserId }
-                });
-            }
-
-            if (!user) {
-                // Create a new User if not found (This part may depend on your authentication flow)
-                return res.status(404).json({
-                    "message":`User with given ${tokenUserId} not found`,
-                })
-            }
-
-            // Create the Post and associate it with the found or created User
-            const post = await prisma.post.create({
-                data: {
-                    title,
-                    price,
-                    address,
-                    city,
-                    bedroom,
-                    bathroom,
-                    latitude,
-                    longitude,
-                    type,
-                    property,
-                    user: {
-                        connect: { id: user.id }
-                    },
-                    images: images ? { create: { url: images.url } } : undefined
+        const newPost = await prisma.post.create({
+            data: {
+                ...body.postData,
+                userId: tokenUserId,
+                postDetail: {
+                    create: body.postDetail,
                 },
-                include: {
-                    images: true // Include the associated image in the response
-                }
-            });
-
-            return res.status(201).json({ post });
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ error: "Failed to create post" });
-        }
+            },
+        });
+        res.status(200).json(newPost);
     } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: err.message });
+        console.log(err);
+        res.status(500).json({ message: "Failed to create post" });
     }
 };
 
@@ -136,5 +123,20 @@ export const deletePost=async(req,res)=>{
         res.status(500).json({
             error:err
         })
+    }
+}
+
+export const deleteAllUsers=async(req,res)=>{
+    const id=parseInt(req.params.id)
+    try {
+        // Delete all posts associated with the user
+        await prisma.post.deleteMany({
+            where: { id }
+        });
+
+        res.status(200).json({ message: `All posts by user ${id} have been deleted.` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to delete posts" });
     }
 }

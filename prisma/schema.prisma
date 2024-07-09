@@ -21,7 +21,7 @@ model User {
 
 model Post {
   id         Int         @id @default(autoincrement())
-  title      String
+  title      String?
   price      Int
   address    String
   city       String
